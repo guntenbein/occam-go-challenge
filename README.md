@@ -1,1 +1,3 @@
-# occam-go-challenge
+# Occam Go Challenge project.
+
+TO BE COMPLETED
