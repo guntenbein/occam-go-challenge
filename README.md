@@ -13,7 +13,7 @@ Timestamp, IndexPrice
 1577836860, 102
 ```
 
-##Requirements
+## Requirements
 
 Data from the streams can come with delays, but strictly in increasing time order for each stream. Stream can return an error, in that case the channel is closed. Bars timestamps should be solid minute as shown in example and provided in on-line manner, price should be the most relevant to the bar timestamp. How to combine different prices into the index is up to you.
 Code should be written using Go language, apart from that you are free to choose how and what to do. You can also write some mock streams in order to test your code.
@@ -21,7 +21,7 @@ The interface is artificial, so if you need to change something or to have addit
 We expect source code to be published on GitHub and shared with us followed by the readme file with the description of the solution written in English. There might be a technical call after the task completion where we can discuss the solution in detail, ask some questions etc.
 
 ## Technical solution
-###Main considerations.
+### Main considerations.
 
 Firsts of all I have added the possibility to reconnect for the streams. 
 If we have quite many sources-streams and one of them is disconnected, it is more optimal to reconnect the stream only, 
@@ -32,7 +32,7 @@ If the value is `nul` it means `undefined`. The stream is not working, and we do
 into account. At the same time the stream is reconnected with retries and then the value will be available again.
 The source should be closed for the cleanup of the resources.
 
-###Changes of the streaming interface.
+### Changes of the streaming interface.
 
 I have changed the `PriceStreamSubscriber` interface and the signature of `SubscribePriceStream` function. 
 The output error channel was replaced by error. 
@@ -40,7 +40,7 @@ We receive the error if the stream cannot be connected and fails with error. If 
 (network), then the output channel is closed and the stream should be reconnected. Also, I added `Close`
 function for final clean up of the resources (goroutines).
 
-###Overall architecture
+### Overall architecture
 
 The main service - `IndexRateTicker` has the following components:
 * `TimeTicker` for giving the time marks for the service. The implementation is `MinuteTimeTicker` giving timestamp on the beginning 
@@ -57,7 +57,7 @@ The components are created and assembled in `main` function, where we suppose to
 Every component has a set of tests for the component. This makes the application being flexible
 and well tested by unit tests.
 
-###Conclusions.
+### Conclusions.
 
 Thus, we have configurable, flexible, well tested and understandable application. It works in concurrent mode,
 closes on `syscall.SIGINT` and makes gentle shutdown of all its resources. The unit tests run with the --race flag, so we
