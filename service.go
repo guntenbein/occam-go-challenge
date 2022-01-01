@@ -12,6 +12,7 @@ type IndexRateTicker struct {
 
 type RateSource interface {
 	Rate() *TickerPrice
+	Open() error
 	Close()
 }
 

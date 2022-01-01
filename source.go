@@ -20,16 +20,20 @@ type ReconnectedRateSource struct {
 
 func NewReconnectedRateSource(subscriber PriceStreamSubscriber, ticker Ticker,
 	reconnectInterval time.Duration) *ReconnectedRateSource {
-	source := &ReconnectedRateSource{
+	return &ReconnectedRateSource{
 		subscriber:        subscriber,
 		ticker:            ticker,
 		stopc:             make(chan struct{}),
 		reconnectInterval: reconnectInterval,
 	}
-	source.runWG.Add(2)
-	go source.keepConnected()
-	go source.refreshRate()
-	return source
+
+}
+
+func (r *ReconnectedRateSource) Open() error {
+	r.runWG.Add(2)
+	go r.keepConnected()
+	go r.refreshRate()
+	return nil
 }
 
 func (r *ReconnectedRateSource) Rate() *TickerPrice {
