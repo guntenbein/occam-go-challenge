@@ -65,6 +65,7 @@ have the protection against the race conditions and unexpected fails of the appl
 
 Also, the application is not provided with logging, tracing, metrics and the infrastructure things for the microservice
 and the distributed systems. It does not have any real sources, just mocks for testing. And it has the console as the output.
-So it does not have any real transport for the output. All that things are suppose to be outside the application.
+So it does not have any real transport for the output. 
+All that things are supposed to be outside the scope of the challenge exercise.
 
 
