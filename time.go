@@ -20,7 +20,7 @@ func (m *MinuteTimeTicker) Duration() time.Duration {
 	return time.Minute
 }
 
-func (m *MinuteTimeTicker) Tick() chan time.Time {
+func (m *MinuteTimeTicker) Tick() <-chan time.Time {
 	if m.minuteTimec == nil {
 		m.minuteTimec = make(chan time.Time)
 		m.heartbeat = time.NewTicker(100 * time.Millisecond)
@@ -52,4 +52,25 @@ func (m *MinuteTimeTicker) Stop() {
 		m.runWG.Wait()
 		close(m.minuteTimec)
 	}
+}
+
+type GenericTimeTicker struct {
+	duration time.Duration
+	ticker   *time.Ticker
+}
+
+func NewGenericTimeTicker(duration time.Duration) *GenericTimeTicker {
+	return &GenericTimeTicker{duration: duration, ticker: time.NewTicker(duration)}
+}
+
+func (gtt *GenericTimeTicker) Duration() time.Duration {
+	return gtt.duration
+}
+
+func (gtt *GenericTimeTicker) Tick() <-chan time.Time {
+	return gtt.ticker.C
+}
+
+func (gtt *GenericTimeTicker) Stop() {
+	gtt.ticker.Stop()
 }

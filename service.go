@@ -18,7 +18,7 @@ type RateSource interface {
 
 type TimeTicker interface {
 	Duration() time.Duration
-	Tick() chan time.Time
+	Tick() <-chan time.Time
 	Stop()
 }
 
