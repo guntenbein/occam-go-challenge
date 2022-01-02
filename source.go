@@ -115,6 +115,7 @@ func (r *ReconnectedRateSource) refreshRate() {
 				value, ok := <-r.rateChan
 				r.lock.Lock()
 				if ok {
+					r.functioning = true
 					r.rate = value
 				} else {
 					r.functioning = false
