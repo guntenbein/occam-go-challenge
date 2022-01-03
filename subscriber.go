@@ -50,14 +50,11 @@ func (p *PredefinedPriceSubscriber) SubscribePriceStream(ticker Ticker) (chan Ti
 		p.stopc = make(chan struct{})
 		p.periodTicker = time.NewTicker(p.period)
 		go func() {
+			p.sendPrice(ticker, time.Now())
 			for {
 				select {
 				case t := <-p.periodTicker.C:
-					p.output <- TickerPrice{
-						Ticker: ticker,
-						Time:   t,
-						Price:  p.price,
-					}
+					p.sendPrice(ticker, t)
 				case <-p.stopc:
 					p.runWG.Done()
 					return
@@ -66,6 +63,18 @@ func (p *PredefinedPriceSubscriber) SubscribePriceStream(ticker Ticker) (chan Ti
 		}()
 	}
 	return p.output, nil
+}
+
+func (p *PredefinedPriceSubscriber) sendPrice(ticker Ticker, t time.Time) {
+	select {
+	case p.output <- TickerPrice{
+		Ticker: ticker,
+		Time:   t,
+		Price:  p.price,
+	}:
+	case <-p.stopc:
+		return
+	}
 }
 
 func (p *PredefinedPriceSubscriber) Close() {
@@ -86,19 +95,16 @@ func (p *PredefinedPriceSubscriber) AllowConnecting() {
 }
 
 type ErroredPriceSubscriber struct {
-	tickc chan TickerPrice
 }
 
 func NewErroredPriceSubscriber() *ErroredPriceSubscriber {
 	return &ErroredPriceSubscriber{}
 }
 
-func (p *ErroredPriceSubscriber) SubscribePriceStream(ticker Ticker) (chan TickerPrice, error) {
-	if p.tickc == nil {
-		p.tickc = make(chan TickerPrice)
-		close(p.tickc)
-	}
-	return p.tickc, nil
+func (p *ErroredPriceSubscriber) SubscribePriceStream(_ Ticker) (chan TickerPrice, error) {
+	tickc := make(chan TickerPrice)
+	close(tickc)
+	return tickc, nil
 }
 
 func (p *ErroredPriceSubscriber) Close() {

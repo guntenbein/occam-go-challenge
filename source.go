@@ -3,16 +3,22 @@ package main
 import (
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
+)
+
+var (
+	Disconnected int32 = 0
+	Connected    int32 = 1
+	ValueReady   int32 = 2
 )
 
 type ReconnectedRateSource struct {
 	subscriber        PriceStreamSubscriber
 	ticker            Ticker
 	rate              TickerPrice
-	functioning       bool
+	status            *int32
 	reconnectInterval time.Duration
-	rateChan          chan TickerPrice
 	lock              sync.RWMutex
 	stopc             chan struct{}
 	runWG             sync.WaitGroup
@@ -20,31 +26,31 @@ type ReconnectedRateSource struct {
 
 func NewReconnectedRateSource(subscriber PriceStreamSubscriber, ticker Ticker,
 	reconnectInterval time.Duration) *ReconnectedRateSource {
+	status := Disconnected
 	return &ReconnectedRateSource{
 		subscriber:        subscriber,
 		ticker:            ticker,
-		stopc:             make(chan struct{}),
 		reconnectInterval: reconnectInterval,
+		status:            &status,
 	}
 
 }
 
 func (r *ReconnectedRateSource) Open() error {
-	r.runWG.Add(2)
+	r.stopc = make(chan struct{})
+	atomic.StoreInt32(r.status, Disconnected)
 	go r.keepConnected()
-	go r.refreshRate()
 	return nil
 }
 
 func (r *ReconnectedRateSource) Rate() *TickerPrice {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
-	if r.functioning {
-		out := r.rate
-		return &out
-	} else {
+	if atomic.LoadInt32(r.status) != ValueReady {
 		return nil
 	}
+	out := r.rate
+	return &out
 }
 
 func (r *ReconnectedRateSource) Close() {
@@ -52,79 +58,75 @@ func (r *ReconnectedRateSource) Close() {
 	r.runWG.Wait()
 }
 
+func (r *ReconnectedRateSource) Status() int32 {
+	return atomic.LoadInt32(r.status)
+}
+
 func (r *ReconnectedRateSource) keepConnected() {
+	r.runWG.Add(1)
+	defer r.runWG.Done()
 	for {
 		select {
 		case <-r.stopc:
-			r.runWG.Done()
 			return
 		default:
-			r.lock.RLock()
-			functioning := r.functioning
-			r.lock.RUnlock()
-			if !functioning {
-				if !r.connect() {
-					// todo: make exponential backoff retry here
-					retry := time.NewTicker(r.reconnectInterval)
-					for range retry.C {
-						// here we interrupt the reconnection retry
-						select {
-						case <-r.stopc:
-							r.runWG.Done()
-							return
-						default:
-							if r.connect() {
-								retry.Stop()
-								break
-							}
+			if atomic.LoadInt32(r.status) == Disconnected {
+				if err := r.connect(); err == nil {
+					continue
+				}
+				// todo: make exponential backoff retry here
+				retry := time.NewTicker(r.reconnectInterval)
+			retryLoop:
+				for range retry.C {
+					select {
+					// here we interrupt the reconnection retry
+					case <-r.stopc:
+						return
+					default:
+						if err := r.connect(); err == nil {
+							retry.Stop()
+							break retryLoop
 						}
 					}
 				}
 			} else {
-				time.Sleep(r.reconnectInterval)
+				time.Sleep(time.Millisecond * 100)
 			}
 		}
 	}
 }
 
-func (r *ReconnectedRateSource) connect() bool {
+func (r *ReconnectedRateSource) connect() (err error) {
 	rateChan, err := r.subscriber.SubscribePriceStream(r.ticker)
 	if err == nil {
-		r.lock.Lock()
-		r.rateChan = rateChan
-		r.functioning = true
-		r.lock.Unlock()
-		return true
+		atomic.StoreInt32(r.status, Connected)
+		go r.refreshRate(rateChan)
+
 	} else {
-		log.Printf("error when reconnecting to the subscriber: %s", err)
+		log.Printf("error %s when reconnecting subscriber %+v", err, r.subscriber)
 	}
-	return false
+	return
 }
 
-func (r *ReconnectedRateSource) refreshRate() {
+func (r *ReconnectedRateSource) refreshRate(rateChan chan TickerPrice) {
+	r.runWG.Add(1)
+	defer r.runWG.Done()
 	for {
 		select {
 		case <-r.stopc:
-			r.runWG.Done()
+			r.subscriber.Close()
 			return
-		default:
-			r.lock.RLock()
-			functioning := r.functioning
-			r.lock.RUnlock()
-			if functioning {
-				value, ok := <-r.rateChan
+		case value, ok := <-rateChan:
+			if ok {
 				r.lock.Lock()
-				if ok {
-					r.functioning = true
-					r.rate = value
-				} else {
-					r.functioning = false
-				}
+				atomic.StoreInt32(r.status, ValueReady)
+				r.rate = value
 				r.lock.Unlock()
 			} else {
-				time.Sleep(r.reconnectInterval)
+				atomic.StoreInt32(r.status, Disconnected)
+				return
 			}
-		}
 
+		}
 	}
 }

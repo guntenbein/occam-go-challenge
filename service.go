@@ -26,7 +26,8 @@ type RateCalculator interface {
 	RatePrice(sources []TickerPrice, interval time.Duration, currencyRateType Ticker) TickerPrice
 }
 
-func StartIndexRateTicker(currencyRateType Ticker, sources []RateSource, tt TimeTicker, pricer RateCalculator) (tickerPrisec chan TickerPrice, stop func()) {
+func StartIndexRateTicker(currencyRateType Ticker, sources []RateSource,
+	tt TimeTicker, pricer RateCalculator) (tickerPrisec <-chan TickerPrice, stop func()) {
 	irTicker := &IndexRateTicker{
 		stopc: make(chan struct{}),
 		runWG: sync.WaitGroup{},
@@ -41,16 +42,34 @@ func StartIndexRateTicker(currencyRateType Ticker, sources []RateSource, tt Time
 			case <-timec:
 				relatedRates := getRateSources(sources)
 				mediumPrice := pricer.RatePrice(relatedRates, duration, currencyRateType)
-				prisec <- mediumPrice
+				if !sendPrice(prisec, mediumPrice, irTicker.stopc) {
+					cleanup(tt, prisec)
+					irTicker.runWG.Done()
+					return
+				}
 			case <-irTicker.stopc:
-				tt.Stop()
-				close(prisec)
+				cleanup(tt, prisec)
 				irTicker.runWG.Done()
 				return
 			}
 		}
 	}()
 	return prisec, irTicker.stop
+}
+
+func cleanup(tt TimeTicker, prisec chan TickerPrice) {
+	tt.Stop()
+	close(prisec)
+	return
+}
+
+func sendPrice(prisec chan TickerPrice, mediumPrice TickerPrice, stopc chan struct{}) bool {
+	select {
+	case prisec <- mediumPrice:
+		return true
+	case <-stopc:
+		return false
+	}
 }
 
 func (s *IndexRateTicker) stop() {

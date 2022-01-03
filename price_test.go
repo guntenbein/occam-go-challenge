@@ -50,4 +50,9 @@ func TestSimpleMediumRateCalculator_RatePrice(t *testing.T) {
 		assert.Equal(t, BTCUSDTicker, mediumPrice.Ticker)
 		assert.Equal(t, "99.94999999999999", mediumPrice.Price)
 	})
+	t.Run("no prices", func(t *testing.T) {
+		mediumPrice := SimpleMediumRateCalculator{}.RatePrice([]TickerPrice{}, time.Minute, BTCUSDTicker)
+		assert.Equal(t, BTCUSDTicker, mediumPrice.Ticker)
+		assert.Equal(t, "undefined", mediumPrice.Price)
+	})
 }

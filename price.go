@@ -27,6 +27,13 @@ func (s SimpleMediumRateCalculator) RatePrice(sources []TickerPrice, interval ti
 	return TickerPrice{
 		Ticker: currencyRateType,
 		Time:   now,
-		Price:  fmt.Sprintf("%.14f", summRate/weight),
+		Price:  calculateMedium(summRate, weight),
 	}
+}
+
+func calculateMedium(rate float64, weight float64) string {
+	if weight == 0 {
+		return "undefined"
+	}
+	return fmt.Sprintf("%.14f", rate/weight)
 }
