@@ -59,11 +59,11 @@ and well tested by unit tests.
 
 ### Conclusions.
 
-Thus, we have configurable, flexible, well tested and understandable application. It works in concurrent mode,
+As the result, we have configurable, flexible, well tested and understandable application. It works in concurrent mode,
 closes on `syscall.SIGINT` and makes gentle shutdown of all its resources. The unit tests run with the --race flag, so we
 have the protection against the race conditions and unexpected fails of the application in concurrency.
 
-Also, the application is not provided with logging, tracing, metrics and the infrastructure things for the microservice
+The application is not provided with logging, tracing, metrics and the infrastructure things for the microservice
 and the distributed systems. It does not have any real sources, just mocks for testing. And it has the console as the output.
 So it does not have any real transport for the output. 
 All that things are supposed to be outside the scope of the challenge exercise.
