@@ -42,13 +42,10 @@ func StartIndexRateTicker(currencyRateType Ticker, sources []RateSource,
 			case <-timec:
 				relatedRates := getRateSources(sources)
 				mediumPrice := pricer.RatePrice(relatedRates, duration, currencyRateType)
-				if !sendPrice(prisec, mediumPrice, irTicker.stopc) {
-					cleanup(tt, prisec)
-					irTicker.runWG.Done()
-					return
-				}
+				sendPrice(prisec, mediumPrice, irTicker.stopc)
 			case <-irTicker.stopc:
-				cleanup(tt, prisec)
+				tt.Stop()
+				close(prisec)
 				irTicker.runWG.Done()
 				return
 			}
@@ -57,18 +54,10 @@ func StartIndexRateTicker(currencyRateType Ticker, sources []RateSource,
 	return prisec, irTicker.stop
 }
 
-func cleanup(tt TimeTicker, prisec chan TickerPrice) {
-	tt.Stop()
-	close(prisec)
-	return
-}
-
-func sendPrice(prisec chan TickerPrice, mediumPrice TickerPrice, stopc chan struct{}) bool {
+func sendPrice(prisec chan TickerPrice, mediumPrice TickerPrice, stopc chan struct{}) {
 	select {
 	case prisec <- mediumPrice:
-		return true
 	case <-stopc:
-		return false
 	}
 }
 
