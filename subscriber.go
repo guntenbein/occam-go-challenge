@@ -73,7 +73,6 @@ func (p *PredefinedPriceSubscriber) sendPrice(ticker Ticker, t time.Time) {
 		Price:  p.price,
 	}:
 	case <-p.stopc:
-		return
 	}
 }
 
